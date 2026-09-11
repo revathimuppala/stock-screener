@@ -129,6 +129,71 @@ class FiftyTwoWeekProximityFilter:
         return shortfall <= self.within_pct
 
 
+@dataclass(frozen=True, slots=True)
+class PegRatioMaxFilter:
+    peg_ratio_max: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.peg_ratio is None:
+            return False
+        return stock.peg_ratio <= self.peg_ratio_max
+
+
+@dataclass(frozen=True, slots=True)
+class EvToEbitdaMaxFilter:
+    ev_to_ebitda_max: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.ev_to_ebitda is None:
+            return False
+        return stock.ev_to_ebitda <= self.ev_to_ebitda_max
+
+
+@dataclass(frozen=True, slots=True)
+class OperatingMarginMinFilter:
+    operating_margin_min: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.operating_margin is None:
+            return False
+        return stock.operating_margin >= self.operating_margin_min
+
+
+@dataclass(frozen=True, slots=True)
+class DebtToAssetsMaxFilter:
+    debt_to_assets_max: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.debt_to_assets is None:
+            return False
+        return stock.debt_to_assets <= self.debt_to_assets_max
+
+
+@dataclass(frozen=True, slots=True)
+class CfoToOperatingProfitMinFilter:
+    cfo_to_operating_profit_min: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.cfo_to_operating_profit is None:
+            return False
+        return stock.cfo_to_operating_profit >= self.cfo_to_operating_profit_min
+
+
+@dataclass(frozen=True, slots=True)
+class RsiRangeFilter:
+    rsi_min: float | None
+    rsi_max: float | None
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.rsi_14 is None:
+            return False
+        if self.rsi_min is not None and stock.rsi_14 < self.rsi_min:
+            return False
+        if self.rsi_max is not None and stock.rsi_14 > self.rsi_max:
+            return False
+        return True
+
+
 class FilterChain:
     """Combines filters built from ScreeningCriteria with AND semantics."""
 
@@ -158,6 +223,20 @@ class FilterChain:
             filters.append(RevenueGrowthMinFilter(criteria.revenue_growth_min))
         if criteria.near_52_week_high_pct is not None:
             filters.append(FiftyTwoWeekProximityFilter(criteria.near_52_week_high_pct))
+        if criteria.peg_ratio_max is not None:
+            filters.append(PegRatioMaxFilter(criteria.peg_ratio_max))
+        if criteria.ev_to_ebitda_max is not None:
+            filters.append(EvToEbitdaMaxFilter(criteria.ev_to_ebitda_max))
+        if criteria.operating_margin_min is not None:
+            filters.append(OperatingMarginMinFilter(criteria.operating_margin_min))
+        if criteria.debt_to_assets_max is not None:
+            filters.append(DebtToAssetsMaxFilter(criteria.debt_to_assets_max))
+        if criteria.cfo_to_operating_profit_min is not None:
+            filters.append(CfoToOperatingProfitMinFilter(criteria.cfo_to_operating_profit_min))
+        # rsi_min/rsi_max and above_sma_window are deliberately NOT added here:
+        # they depend on price history fetched by TechnicalAnalysisStage
+        # *after* this chain runs (see ScreeningService.screen), not on the
+        # raw quote every other filter above reads from.
         return cls(filters)
 
     def matches(self, stock: Stock) -> bool:

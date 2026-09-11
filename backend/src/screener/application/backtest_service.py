@@ -36,8 +36,16 @@ class BacktestService:
         self._price_history_provider = price_history_provider
         self._universe = universe
 
-    def run(self, matcher: Matcher, start: date, end: date, holding_period_days: int) -> BacktestResult:
-        batch = self._stock_provider.get_quotes(self._universe)
+    def run(
+        self,
+        matcher: Matcher,
+        start: date,
+        end: date,
+        holding_period_days: int,
+        universe_override: list[str] | None = None,
+    ) -> BacktestResult:
+        universe = universe_override if universe_override else self._universe
+        batch = self._stock_provider.get_quotes(universe)
         current_by_symbol = {s.symbol: s for s in batch.stocks}
         excluded_symbols = list(batch.excluded_symbols)
         warnings: list[str] = []
@@ -47,7 +55,7 @@ class BacktestService:
 
         history_end = end + timedelta(days=min(holding_period_days, _MAX_HOLDING_LOOKAHEAD_DAYS))
 
-        for symbol in self._universe:
+        for symbol in universe:
             current_stock = current_by_symbol.get(symbol)
             if current_stock is None:
                 continue  # already recorded in excluded_symbols by the provider

@@ -10,7 +10,9 @@ import yfinance as yf
 from curl_cffi import requests as cc_requests
 
 from screener.domain.entities import Stock
+from screener.domain.valuation import graham_value, simple_dcf_value
 from screener.infrastructure.exceptions import ProviderDataError, TransientProviderError
+from screener.infrastructure.treasury_yield_provider import TreasuryYieldProvider
 
 _REQUEST_TIMEOUT_SECONDS = 3
 
@@ -26,8 +28,9 @@ class YFinanceProvider:
     build that session ourselves so we can still enforce our own timeout
     budget rather than trusting yfinance's default."""
 
-    def __init__(self) -> None:
+    def __init__(self, treasury_yield_provider: TreasuryYieldProvider | None = None) -> None:
         self._session = cc_requests.Session(impersonate="chrome", timeout=_REQUEST_TIMEOUT_SECONDS)
+        self._treasury_yield_provider = treasury_yield_provider or TreasuryYieldProvider()
 
     def fetch(self, symbol: str) -> Stock:
         try:
@@ -42,6 +45,8 @@ class YFinanceProvider:
         if price is None or name is None:
             raise ProviderDataError(f"incomplete data for {symbol}")
 
+        earnings_growth = _as_float(info.get("earningsGrowth"))
+
         return Stock(
             symbol=symbol,
             name=name,
@@ -55,10 +60,25 @@ class YFinanceProvider:
             roe=_as_float(info.get("returnOnEquity")),
             debt_to_equity=_as_float(info.get("debtToEquity")),
             price_to_book=_as_float(info.get("priceToBook")),
-            earnings_growth=_as_float(info.get("earningsGrowth")),
+            earnings_growth=earnings_growth,
             revenue_growth=_as_float(info.get("revenueGrowth")),
             fifty_two_week_high=_as_float(info.get("fiftyTwoWeekHigh")),
             fifty_two_week_low=_as_float(info.get("fiftyTwoWeekLow")),
+            peg_ratio=_as_float(info.get("pegRatio")),
+            ev_to_ebitda=_as_float(info.get("enterpriseToEbitda")),
+            operating_margin=_as_float(info.get("operatingMargins")),
+            graham_value=graham_value(
+                eps=_as_float(info.get("trailingEps")),
+                growth_rate=earnings_growth,
+                y=self._treasury_yield_provider.get_yield(),
+            ),
+            dcf_value=simple_dcf_value(
+                fcf=_as_float(info.get("freeCashflow")),
+                growth_rate=earnings_growth,
+                shares_outstanding=_as_float(info.get("sharesOutstanding")),
+            ),
+            industry=info.get("industry"),
+            business_summary=info.get("longBusinessSummary"),
         )
 
 

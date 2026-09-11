@@ -1,10 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import type { StockResult } from "@/lib/types";
 
 interface ResultsTableProps {
   results: StockResult[];
+  /** When given, clicking a symbol calls this instead of navigating to
+   * /company/[symbol] — used to open the detail slide-over in place. Falls
+   * back to a normal link when omitted. */
+  onSelectSymbol?: (symbol: string) => void;
 }
 
 type SortDirection = "asc" | "desc";
@@ -32,14 +37,26 @@ function formatPercent(value: number | null | undefined): string {
   return value == null ? "—" : `${(value * 100).toFixed(2)}%`;
 }
 
-const COLUMNS: Column[] = [
-  {
+function buildSymbolColumn(onSelectSymbol?: (symbol: string) => void): Column {
+  return {
     key: "symbol",
     label: "Symbol",
     getValue: (s) => s.symbol,
     render: (s) => (
       <>
-        {s.symbol}
+        {onSelectSymbol ? (
+          <button
+            type="button"
+            onClick={() => onSelectSymbol(s.symbol)}
+            className="underline hover:no-underline"
+          >
+            {s.symbol}
+          </button>
+        ) : (
+          <Link href={`/company/${s.symbol}`} className="underline hover:no-underline">
+            {s.symbol}
+          </Link>
+        )}
         {s.is_stale && (
           <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800 dark:bg-amber-900 dark:text-amber-200">
             stale
@@ -47,7 +64,10 @@ const COLUMNS: Column[] = [
         )}
       </>
     ),
-  },
+  };
+}
+
+const BASE_COLUMNS: Column[] = [
   { key: "name", label: "Name", getValue: (s) => s.name, render: (s) => s.name },
   { key: "sector", label: "Sector", getValue: (s) => s.sector, render: (s) => s.sector },
   { key: "price", label: "Price", getValue: (s) => s.price, render: (s) => `$${formatNumber(s.price)}` },
@@ -95,15 +115,79 @@ const COLUMNS: Column[] = [
     getValue: (s) => s.fifty_two_week_high,
     render: (s) => (s.fifty_two_week_high == null ? "—" : `$${formatNumber(s.fifty_two_week_high)}`),
   },
+  // Valuation Ratios
+  { key: "peg_ratio", label: "PEG", getValue: (s) => s.peg_ratio, render: (s) => formatNumber(s.peg_ratio) },
+  {
+    key: "ev_to_ebitda",
+    label: "EV/EBITDA",
+    getValue: (s) => s.ev_to_ebitda,
+    render: (s) => formatNumber(s.ev_to_ebitda),
+  },
+  {
+    key: "graham_value",
+    label: "Graham Value",
+    getValue: (s) => s.graham_value,
+    render: (s) => (s.graham_value == null ? "—" : `$${formatNumber(s.graham_value)}`),
+  },
+  {
+    key: "dcf_value",
+    label: "DCF Value",
+    getValue: (s) => s.dcf_value,
+    render: (s) => (s.dcf_value == null ? "—" : `$${formatNumber(s.dcf_value)}`),
+  },
+  // Financial Health & Profitability
+  {
+    key: "operating_margin",
+    label: "Op Margin",
+    getValue: (s) => s.operating_margin,
+    render: (s) => formatPercent(s.operating_margin),
+  },
+  {
+    key: "debt_to_assets",
+    label: "Debt/Assets",
+    getValue: (s) => s.debt_to_assets,
+    render: (s) => formatPercent(s.debt_to_assets),
+  },
+  {
+    key: "cfo_to_operating_profit",
+    label: "CFO/OP",
+    getValue: (s) => s.cfo_to_operating_profit,
+    render: (s) => formatNumber(s.cfo_to_operating_profit),
+  },
+  // Technical & Price Metrics
+  {
+    key: "sma_50",
+    label: "SMA 50",
+    getValue: (s) => s.sma_50,
+    render: (s) => (s.sma_50 == null ? "—" : `$${formatNumber(s.sma_50)}`),
+  },
+  {
+    key: "sma_100",
+    label: "SMA 100",
+    getValue: (s) => s.sma_100,
+    render: (s) => (s.sma_100 == null ? "—" : `$${formatNumber(s.sma_100)}`),
+  },
+  {
+    key: "sma_200",
+    label: "SMA 200",
+    getValue: (s) => s.sma_200,
+    render: (s) => (s.sma_200 == null ? "—" : `$${formatNumber(s.sma_200)}`),
+  },
+  { key: "rsi_14", label: "RSI (14)", getValue: (s) => s.rsi_14, render: (s) => formatNumber(s.rsi_14, 1) },
 ];
 
-export function ResultsTable({ results }: ResultsTableProps) {
+export function ResultsTable({ results, onSelectSymbol }: ResultsTableProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
+  const columns = useMemo(
+    () => [buildSymbolColumn(onSelectSymbol), ...BASE_COLUMNS],
+    [onSelectSymbol]
+  );
+
   const sorted = useMemo(() => {
     if (sortKey === null) return results;
-    const column = COLUMNS.find((c) => c.key === sortKey);
+    const column = columns.find((c) => c.key === sortKey);
     if (!column) return results;
     const withValues = results.map((stock) => ({ stock, value: column.getValue(stock) }));
     withValues.sort((a, b) => {
@@ -114,7 +198,7 @@ export function ResultsTable({ results }: ResultsTableProps) {
       return 0;
     });
     return withValues.map((w) => w.stock);
-  }, [results, sortKey, sortDirection]);
+  }, [results, sortKey, sortDirection, columns]);
 
   function handleHeaderClick(key: string) {
     if (sortKey === key) {
@@ -134,7 +218,7 @@ export function ResultsTable({ results }: ResultsTableProps) {
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
-            {COLUMNS.map((column) => (
+            {columns.map((column) => (
               <th
                 key={column.key}
                 role="columnheader"
@@ -153,7 +237,7 @@ export function ResultsTable({ results }: ResultsTableProps) {
         <tbody>
           {sorted.map((stock) => (
             <tr key={stock.symbol} className="border-t">
-              {COLUMNS.map((column) => (
+              {columns.map((column) => (
                 <td key={column.key} className="whitespace-nowrap py-2 pr-4">
                   {column.render(stock)}
                 </td>

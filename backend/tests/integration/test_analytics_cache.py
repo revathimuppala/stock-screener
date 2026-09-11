@@ -72,3 +72,59 @@ class TestAnalyticsCache:
 
         path = data_dir / "AAPL" / f"{today.strftime('%Y%m%d')}.csv"
         assert not path.exists()
+
+    def test_computes_sma_100_when_enough_history(self, data_dir):
+        on_date = date(2020, 1, 1)
+        bars = consecutive_bars(110, on_date, close=20.0)
+        provider = FakePriceHistoryProvider(bars)
+        cache = AnalyticsCache(price_history=provider, data_dir=data_dir)
+
+        analytics = cache.get("AAPL", on_date)
+
+        assert analytics.sma_100 == pytest.approx(20.0)
+
+    def test_none_sma_100_when_insufficient_history(self, data_dir):
+        on_date = date(2020, 1, 1)
+        bars = consecutive_bars(60, on_date)
+        provider = FakePriceHistoryProvider(bars)
+        cache = AnalyticsCache(price_history=provider, data_dir=data_dir)
+
+        assert cache.get("AAPL", on_date).sma_100 is None
+
+    def test_rsi_100_for_a_strictly_increasing_series(self, data_dir):
+        on_date = date(2020, 1, 1)
+        bars = [
+            PriceBar(date=on_date - timedelta(days=20 - i), close=100.0 + i)
+            for i in range(20)
+        ]
+        cache = AnalyticsCache(price_history=FakePriceHistoryProvider(bars), data_dir=data_dir)
+
+        assert cache.get("AAPL", on_date).rsi_14 == pytest.approx(100.0)
+
+    def test_rsi_0_for_a_strictly_decreasing_series(self, data_dir):
+        on_date = date(2020, 1, 1)
+        bars = [
+            PriceBar(date=on_date - timedelta(days=20 - i), close=200.0 - i)
+            for i in range(20)
+        ]
+        cache = AnalyticsCache(price_history=FakePriceHistoryProvider(bars), data_dir=data_dir)
+
+        assert cache.get("AAPL", on_date).rsi_14 == pytest.approx(0.0)
+
+    def test_rsi_roughly_50_for_an_alternating_series(self, data_dir):
+        on_date = date(2020, 1, 1)
+        bars = [
+            PriceBar(date=on_date - timedelta(days=20 - i), close=100.0 + (1 if i % 2 == 0 else -1))
+            for i in range(20)
+        ]
+        cache = AnalyticsCache(price_history=FakePriceHistoryProvider(bars), data_dir=data_dir)
+
+        rsi = cache.get("AAPL", on_date).rsi_14
+        assert rsi == pytest.approx(50.0, abs=5)
+
+    def test_none_rsi_when_insufficient_history(self, data_dir):
+        on_date = date(2020, 1, 1)
+        bars = consecutive_bars(5, on_date)
+        cache = AnalyticsCache(price_history=FakePriceHistoryProvider(bars), data_dir=data_dir)
+
+        assert cache.get("AAPL", on_date).rsi_14 is None

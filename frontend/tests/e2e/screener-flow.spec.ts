@@ -39,6 +39,7 @@ test("filling filters and submitting shows ranked results", async ({ page }) => 
 
   await page.goto("/");
 
+  await page.getByRole("tab", { name: /^filters$/i }).click();
   await page.getByLabel(/p\/e min/i).fill("10");
   await page.getByLabel(/p\/e max/i).fill("20");
   await page.getByRole("button", { name: /screen stocks/i }).click();
@@ -81,13 +82,15 @@ test("shows a degraded banner when results include stale data", async ({ page })
   });
 
   await page.goto("/");
+
+  await page.getByRole("tab", { name: /^filters$/i }).click();
   await page.getByRole("button", { name: /screen stocks/i }).click();
 
   await expect(page.getByRole("status")).toContainText(/degraded/i);
   await expect(page.getByRole("row", { name: /AAPL/ })).toContainText(/stale/i);
 });
 
-test("switching to Advanced Query mode and running a query shows results", async ({ page }) => {
+test("switching to Query mode and running a query shows results", async ({ page }) => {
   await page.route("**/api/v1/screener/query", async (route) => {
     const body = route.request().postDataJSON();
     expect(body.query).toContain("pe");
@@ -123,7 +126,7 @@ test("switching to Advanced Query mode and running a query shows results", async
   });
 
   await page.goto("/");
-  await page.getByRole("tab", { name: /advanced query/i }).click();
+  await page.getByRole("tab", { name: /^query$/i }).click();
   await page.getByLabel(/query/i).fill('pe < 30 AND sector = "Technology"');
   await page.getByRole("button", { name: /run query/i }).click();
 
@@ -140,7 +143,7 @@ test("shows an inline parse error for a malformed query", async ({ page }) => {
   });
 
   await page.goto("/");
-  await page.getByRole("tab", { name: /advanced query/i }).click();
+  await page.getByRole("tab", { name: /^query$/i }).click();
   await page.getByLabel(/query/i).fill("foo < 20");
   await page.getByRole("button", { name: /run query/i }).click();
 

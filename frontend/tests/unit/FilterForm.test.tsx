@@ -26,6 +26,15 @@ describe("FilterForm", () => {
       earnings_growth_min: undefined,
       revenue_growth_min: undefined,
       near_52_week_high_pct: undefined,
+      above_sma_window: undefined,
+      peg_ratio_max: undefined,
+      ev_to_ebitda_max: undefined,
+      operating_margin_min: undefined,
+      debt_to_assets_max: undefined,
+      cfo_to_operating_profit_min: undefined,
+      rsi_min: undefined,
+      rsi_max: undefined,
+      symbols: undefined,
     });
   });
 
@@ -47,6 +56,15 @@ describe("FilterForm", () => {
       earnings_growth_min: undefined,
       revenue_growth_min: undefined,
       near_52_week_high_pct: undefined,
+      above_sma_window: undefined,
+      peg_ratio_max: undefined,
+      ev_to_ebitda_max: undefined,
+      operating_margin_min: undefined,
+      debt_to_assets_max: undefined,
+      cfo_to_operating_profit_min: undefined,
+      rsi_min: undefined,
+      rsi_max: undefined,
+      symbols: undefined,
     });
   });
 
@@ -73,6 +91,45 @@ describe("FilterForm", () => {
         near_52_week_high_pct: 0.1,
       })
     );
+  });
+
+  it("submits the new valuation/health/technical fields when filled in", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<FilterForm onSubmit={onSubmit} isLoading={false} />);
+
+    await user.type(screen.getByLabelText(/peg.*max/i), "2");
+    await user.type(screen.getByLabelText(/ev\/ebitda max/i), "20");
+    await user.type(screen.getByLabelText(/operating margin min/i), "20");
+    await user.type(screen.getByLabelText(/debt\/assets max/i), "50");
+    await user.type(screen.getByLabelText(/cfo\/op min/i), "0.8");
+    await user.selectOptions(screen.getByLabelText(/above.*sma/i), "50");
+    await user.type(screen.getByLabelText(/rsi min/i), "30");
+    await user.type(screen.getByLabelText(/rsi max/i), "70");
+    await user.click(screen.getByRole("button", { name: /screen stocks/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        peg_ratio_max: 2,
+        ev_to_ebitda_max: 20,
+        operating_margin_min: 0.2,
+        debt_to_assets_max: 0.5,
+        cfo_to_operating_profit_min: 0.8,
+        above_sma_window: 50,
+        rsi_min: 30,
+        rsi_max: 70,
+      })
+    );
+  });
+
+  it("includes the symbols prop passed down from the shared toolbar input", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<FilterForm onSubmit={onSubmit} isLoading={false} symbols={["AAPL", "MSFT"]} />);
+
+    await user.click(screen.getByRole("button", { name: /screen stocks/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ symbols: ["AAPL", "MSFT"] }));
   });
 
   it("shows a validation error and does not submit when P/E min exceeds P/E max", async () => {

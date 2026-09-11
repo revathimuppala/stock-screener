@@ -31,6 +31,7 @@ def _run_job(
             start=request.start_date,
             end=request.end_date,
             holding_period_days=request.holding_period_days,
+            universe_override=request.symbols,
         )
         job_store.write(job_id, asdict(result))
     except Exception as exc:  # a failed job should be visible via polling, not a dropped task

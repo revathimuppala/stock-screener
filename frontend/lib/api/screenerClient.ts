@@ -1,8 +1,11 @@
 import type {
   BacktestJob,
+  CompanyDetail,
+  Market,
   SavedScreen,
   SavedScreenListResponse,
   ScreeningCriteria,
+  ScreenJob,
   ScreenResponse,
   WatchlistResponse,
 } from "@/lib/types";
@@ -65,11 +68,11 @@ export class QueryParseException extends Error {
   }
 }
 
-export async function postQuery(query: string): Promise<ScreenResponse> {
+export async function postQuery(query: string, symbols?: string[]): Promise<ScreenResponse> {
   const response = await fetch(`${API_BASE_URL}/api/v1/screener/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, symbols }),
   });
   if (response.status === 400) {
     const body = await response.json();
@@ -79,6 +82,20 @@ export async function postQuery(query: string): Promise<ScreenResponse> {
     throw new ScreenerApiError(`Query request failed with status ${response.status}`, response.status);
   }
   return response.json() as Promise<ScreenResponse>;
+}
+
+export interface DslField {
+  name: string;
+  type: "string" | "number";
+}
+
+export interface DslFieldsResponse {
+  fields: DslField[];
+  aliases: Record<string, string>;
+}
+
+export async function getDslFields(): Promise<DslFieldsResponse> {
+  return getJson<DslFieldsResponse>("/api/v1/screener/fields");
 }
 
 export async function getWatchlist(): Promise<WatchlistResponse> {
@@ -121,6 +138,7 @@ export interface StartBacktestParams {
   start_date: string;
   end_date: string;
   holding_period_days: number;
+  symbols?: string[];
 }
 
 export async function startBacktest(
@@ -131,6 +149,66 @@ export async function startBacktest(
 
 export async function getBacktest(backtestId: string): Promise<BacktestJob> {
   return getJson<BacktestJob>(`/api/v1/backtest/${encodeURIComponent(backtestId)}`);
+}
+
+export class CompanyNotFoundError extends Error {
+  constructor(symbol: string) {
+    super(`No data available for ${symbol}`);
+    this.name = "CompanyNotFoundError";
+  }
+}
+
+export async function getCompanyDetail(symbol: string): Promise<CompanyDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/companies/${encodeURIComponent(symbol)}`);
+  if (response.status === 404) {
+    throw new CompanyNotFoundError(symbol);
+  }
+  if (!response.ok) {
+    throw new ScreenerApiError(`Request for ${symbol} failed with status ${response.status}`, response.status);
+  }
+  return response.json() as Promise<CompanyDetail>;
+}
+
+export async function getMarkets(): Promise<{ markets: Market[] }> {
+  return getJson<{ markets: Market[] }>("/api/v1/markets");
+}
+
+export interface StartScreenJobParams {
+  market_id: string;
+  criteria?: ScreeningCriteria;
+  query?: string;
+  symbols?: string[];
+}
+
+export async function startScreenJob(
+  params: StartScreenJobParams
+): Promise<{ screen_id: string; status: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/screener/jobs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (response.status === 400) {
+    const body = await response.json();
+    if (body.detail && typeof body.detail === "object" && "error" in body.detail) {
+      throw new QueryParseException(body.detail);
+    }
+    throw new ScreenerApiError(
+      typeof body.detail === "string" ? body.detail : "Couldn't start the screen.",
+      400
+    );
+  }
+  if (!response.ok) {
+    throw new ScreenerApiError(
+      `Request to start a screen job failed with status ${response.status}`,
+      response.status
+    );
+  }
+  return response.json();
+}
+
+export async function getScreenJob(screenId: string): Promise<ScreenJob> {
+  return getJson<ScreenJob>(`/api/v1/screener/jobs/${encodeURIComponent(screenId)}`);
 }
 
 export function buildScreenerExportUrl(criteria: ScreeningCriteria): string {

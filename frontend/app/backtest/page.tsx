@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { BacktestTimeline } from "@/components/backtest/BacktestTimeline";
+import { DslQueryTextarea } from "@/components/screener/DslQueryTextarea";
+import { parseOptionalSymbols } from "@/components/screener/FilterForm";
 import { getBacktest, startBacktest } from "@/lib/api/screenerClient";
 import type { BacktestJob, BacktestPerformance } from "@/lib/types";
 
@@ -28,6 +30,7 @@ export default function BacktestPage() {
   const [startDate, setStartDate] = useState(monthsAgoIso(6));
   const [endDate, setEndDate] = useState(todayIso());
   const [holdingPeriodDays, setHoldingPeriodDays] = useState(30);
+  const [symbolsInput, setSymbolsInput] = useState("");
 
   const [backtestId, setBacktestId] = useState<string | null>(null);
   const [job, setJob] = useState<BacktestJob | null>(null);
@@ -67,6 +70,7 @@ export default function BacktestPage() {
         start_date: startDate,
         end_date: endDate,
         holding_period_days: holdingPeriodDays,
+        symbols: parseOptionalSymbols(symbolsInput),
       });
       setBacktestId(response.backtest_id);
       setJob({ status: "pending" });
@@ -100,13 +104,19 @@ export default function BacktestPage() {
         <label htmlFor="backtest-query" className="text-sm">
           Query
         </label>
-        <textarea
-          id="backtest-query"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          rows={2}
-          className="rounded border px-2 py-1 font-mono text-sm"
-        />
+        <DslQueryTextarea id="backtest-query" value={query} onChange={setQuery} rows={2} />
+
+        <label htmlFor="backtest-symbols" className="flex flex-col gap-1 text-sm">
+          Symbols (optional, comma-separated — overrides the default universe)
+          <input
+            id="backtest-symbols"
+            type="text"
+            value={symbolsInput}
+            onChange={(e) => setSymbolsInput(e.target.value)}
+            placeholder="e.g. AAPL, MSFT, GOOGL"
+            className="rounded border px-2 py-1"
+          />
+        </label>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="flex flex-col gap-1 text-sm">

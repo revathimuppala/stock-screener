@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { DslQueryTextarea } from "@/components/screener/DslQueryTextarea";
 import type { QueryParseErrorDetail } from "@/lib/api/screenerClient";
 
 interface QueryInputProps {
@@ -24,13 +25,12 @@ export function QueryInput({ onSubmit, isLoading, parseError }: QueryInputProps)
       <label htmlFor="dsl-query" className="text-sm">
         Query
       </label>
-      <textarea
+      <DslQueryTextarea
         id="dsl-query"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={setQuery}
         rows={3}
         placeholder='pe < 20 AND sector = "Technology" AND (roe > 0.15 OR dividend_yield > 0.02)'
-        className="rounded border px-2 py-1 font-mono text-sm"
       />
 
       {parseError && (

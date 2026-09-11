@@ -166,6 +166,25 @@ class TestBacktestServiceExclusions:
         assert "BAD" in result.excluded_symbols
 
 
+class TestBacktestServiceSymbolOverride:
+    def test_universe_override_replaces_the_default_universe(self):
+        stock_provider = FakeStockDataProvider([make_stock(symbol="CUSTOM")])
+        price_history = FakePriceHistoryProvider({"CUSTOM": bars(("2026-01-01", 90.0))})
+        service = BacktestService(
+            stock_provider=stock_provider, price_history_provider=price_history, universe=["AAPL"]
+        )
+
+        result = service.run(
+            matcher=_AlwaysMatcher(),
+            start=date(2026, 1, 1),
+            end=date(2026, 1, 1),
+            holding_period_days=1,
+            universe_override=["CUSTOM"],
+        )
+
+        assert [m.symbol for m in result.timeline] == ["CUSTOM"]
+
+
 class _AlwaysMatcher:
     def matches(self, stock) -> bool:
         return True

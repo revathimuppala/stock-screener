@@ -2,6 +2,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 
 from screener.api.routers.backtest import router as backtest_router
+from screener.api.routers.companies import router as companies_router
+from screener.api.routers.markets import router as markets_router
 from screener.api.routers.saved_screens import router as saved_screens_router
 from screener.api.routers.screener import router as screener_router
 from screener.api.routers.watchlist import router as watchlist_router
@@ -19,6 +21,8 @@ app.include_router(screener_router)
 app.include_router(watchlist_router)
 app.include_router(saved_screens_router)
 app.include_router(backtest_router)
+app.include_router(companies_router)
+app.include_router(markets_router)
 
 
 @app.get("/health")

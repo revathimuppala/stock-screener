@@ -20,6 +20,17 @@ function makeResult(overrides: Partial<StockResult>): StockResult {
     revenue_growth: 0.08,
     fifty_two_week_high: 200,
     fifty_two_week_low: 150,
+    peg_ratio: 2.0,
+    ev_to_ebitda: 18,
+    operating_margin: 0.25,
+    debt_to_assets: 0.3,
+    cfo_to_operating_profit: 1.1,
+    graham_value: 210,
+    dcf_value: 180,
+    sma_50: 185,
+    sma_100: 180,
+    sma_200: 175,
+    rsi_14: 55,
     ...overrides,
   };
 }

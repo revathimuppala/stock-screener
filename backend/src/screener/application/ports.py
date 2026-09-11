@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
-from screener.domain.entities import PriceBar, SavedScreen, Stock
+from screener.domain.entities import FilingLink, PriceBar, RawFinancials, SavedScreen, Stock
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,3 +54,29 @@ class PriceHistoryProvider(Protocol):
     file-backed cache wrapping it) live in the infrastructure layer (DIP)."""
 
     def get_history(self, symbol: str, start: date, end: date) -> list[PriceBar]: ...
+
+
+class FinancialsProvider(Protocol):
+    """Port for balance-sheet/quarterly-statement/holders data — used by
+    the debt_to_assets and cfo_to_operating_profit enrichment and by the
+    company-detail endpoint. Concrete implementation lives in the
+    infrastructure layer (DIP)."""
+
+    def get_financials(self, symbol: str) -> RawFinancials: ...
+
+
+class FilingLinkProvider(Protocol):
+    """Port for SEC filing links — used by the company-detail endpoint.
+    Concrete implementation (SecEdgarClient) lives in the infrastructure
+    layer (DIP)."""
+
+    def get_filing_links(self, symbol: str) -> list[FilingLink]: ...
+
+
+class MarketConstituentsProvider(Protocol):
+    """Port for a market/index's constituent symbol list (already in
+    yfinance-compatible ticker form, e.g. ".NS"/".BO" suffixes, "-" share
+    classes). Concrete implementations live in the infrastructure layer
+    (DIP)."""
+
+    def get_symbols(self, market_id: str) -> list[str]: ...

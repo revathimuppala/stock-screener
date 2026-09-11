@@ -29,8 +29,10 @@ class FakeStockDataProvider:
     def __init__(self, stocks: list[Stock], excluded_symbols: list[str] | None = None):
         self._stocks = stocks
         self._excluded_symbols = excluded_symbols or []
+        self.requested_symbols: list[list[str]] = []
 
     def get_quotes(self, symbols: list[str]) -> ProviderBatchResult:
+        self.requested_symbols.append(list(symbols))
         return ProviderBatchResult(stocks=self._stocks, excluded_symbols=self._excluded_symbols)
 
 
@@ -105,13 +107,32 @@ class TestScreeningServiceDegradedModes:
 
 
 class FakeTechnicalFilterStage:
-    def __init__(self, symbols_that_pass: list[str]):
+    def __init__(self, symbols_that_pass: list[str] | None = None):
         self._symbols_that_pass = symbols_that_pass
         self.calls: list[int] = []
+        self.enrich_calls = 0
+        self.rsi_calls: list[tuple] = []
 
     def apply(self, stocks, above_sma_window):
         self.calls.append(above_sma_window)
         return [s for s in stocks if s.symbol in self._symbols_that_pass]
+
+    def enrich(self, stocks):
+        self.enrich_calls += 1
+        return stocks
+
+    def filter_by_rsi(self, stocks, rsi_min, rsi_max):
+        self.rsi_calls.append((rsi_min, rsi_max))
+        return [s for s in stocks if s.symbol in self._symbols_that_pass]
+
+
+class FakeFinancialsEnrichmentStage:
+    def __init__(self):
+        self.enrich_calls = 0
+
+    def enrich(self, stocks):
+        self.enrich_calls += 1
+        return stocks
 
 
 class TestScreeningServiceTechnicalFilter:
@@ -151,3 +172,61 @@ class TestScreeningServiceTechnicalFilter:
 
         assert [s.symbol for s in result.results] == ["AAPL"]
         assert technical_stage.calls == []
+
+    def test_enrich_is_always_called_when_a_stage_is_configured(self):
+        stocks = [make_stock(symbol="AAPL")]
+        provider = FakeStockDataProvider(stocks)
+        technical_stage = FakeTechnicalFilterStage()
+        service = ScreeningService(
+            provider=provider, universe=["AAPL"], technical_filter_stage=technical_stage
+        )
+
+        service.screen(ScreeningCriteria())
+
+        assert technical_stage.enrich_calls == 1
+
+    def test_rsi_filter_narrows_results(self):
+        stocks = [make_stock(symbol="OVERSOLD"), make_stock(symbol="NEUTRAL")]
+        provider = FakeStockDataProvider(stocks)
+        technical_stage = FakeTechnicalFilterStage(symbols_that_pass=["OVERSOLD"])
+        service = ScreeningService(
+            provider=provider, universe=["OVERSOLD", "NEUTRAL"], technical_filter_stage=technical_stage
+        )
+
+        result = service.screen(ScreeningCriteria(rsi_max=30.0))
+
+        assert [s.symbol for s in result.results] == ["OVERSOLD"]
+        assert technical_stage.rsi_calls == [(None, 30.0)]
+
+    def test_financials_enrichment_is_always_called_when_configured(self):
+        stocks = [make_stock(symbol="AAPL")]
+        provider = FakeStockDataProvider(stocks)
+        financials_stage = FakeFinancialsEnrichmentStage()
+        service = ScreeningService(
+            provider=provider, universe=["AAPL"], financials_enrichment_stage=financials_stage
+        )
+
+        service.screen(ScreeningCriteria())
+
+        assert financials_stage.enrich_calls == 1
+
+
+class TestScreeningServiceSymbolOverride:
+    def test_symbols_in_criteria_override_the_default_universe(self):
+        stocks = [make_stock(symbol="CUSTOM")]
+        provider = FakeStockDataProvider(stocks)
+        service = ScreeningService(provider=provider, universe=["AAPL", "MSFT"])
+
+        result = service.screen(ScreeningCriteria(symbols=["CUSTOM"]))
+
+        assert [s.symbol for s in result.results] == ["CUSTOM"]
+        assert provider.requested_symbols == [["CUSTOM"]]
+
+    def test_no_symbols_falls_back_to_the_default_universe(self):
+        stocks = [make_stock(symbol="AAPL")]
+        provider = FakeStockDataProvider(stocks)
+        service = ScreeningService(provider=provider, universe=["AAPL"])
+
+        result = service.screen(ScreeningCriteria(symbols=None))
+
+        assert [s.symbol for s in result.results] == ["AAPL"]
