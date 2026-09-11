@@ -102,3 +102,52 @@ class TestScreeningServiceDegradedModes:
 
         assert result.status == "degraded"
         assert result.stale_symbols == ["STALE_ONE"]
+
+
+class FakeTechnicalFilterStage:
+    def __init__(self, symbols_that_pass: list[str]):
+        self._symbols_that_pass = symbols_that_pass
+        self.calls: list[int] = []
+
+    def apply(self, stocks, above_sma_window):
+        self.calls.append(above_sma_window)
+        return [s for s in stocks if s.symbol in self._symbols_that_pass]
+
+
+class TestScreeningServiceTechnicalFilter:
+    def test_above_sma_window_further_narrows_results(self):
+        stocks = [make_stock(symbol="ABOVE"), make_stock(symbol="BELOW")]
+        provider = FakeStockDataProvider(stocks)
+        technical_stage = FakeTechnicalFilterStage(symbols_that_pass=["ABOVE"])
+        service = ScreeningService(
+            provider=provider, universe=["ABOVE", "BELOW"], technical_filter_stage=technical_stage
+        )
+
+        result = service.screen(ScreeningCriteria(above_sma_window=50))
+
+        assert [s.symbol for s in result.results] == ["ABOVE"]
+        assert technical_stage.calls == [50]
+
+    def test_no_technical_filter_stage_configured_raises_when_requested(self):
+        stocks = [make_stock(symbol="AAPL")]
+        provider = FakeStockDataProvider(stocks)
+        service = ScreeningService(provider=provider, universe=["AAPL"])
+
+        try:
+            service.screen(ScreeningCriteria(above_sma_window=50))
+            assert False, "expected ValueError"
+        except ValueError:
+            pass
+
+    def test_omitting_above_sma_window_never_touches_the_technical_stage(self):
+        stocks = [make_stock(symbol="AAPL")]
+        provider = FakeStockDataProvider(stocks)
+        technical_stage = FakeTechnicalFilterStage(symbols_that_pass=[])
+        service = ScreeningService(
+            provider=provider, universe=["AAPL"], technical_filter_stage=technical_stage
+        )
+
+        result = service.screen(ScreeningCriteria())
+
+        assert [s.symbol for s in result.results] == ["AAPL"]
+        assert technical_stage.calls == []

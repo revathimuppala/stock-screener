@@ -6,6 +6,8 @@ backend/.pytest_cache/
 backend/.coverage
 backend/htmlcov/
 backend/watchlist.db
+backend/saved_screens.db
+backend/data/
 *.pyc
 
 # Frontend

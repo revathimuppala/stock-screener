@@ -52,6 +52,13 @@ class YFinanceProvider:
             dividend_yield=_dividend_yield(info, float(price)),
             as_of=datetime.now(timezone.utc),
             is_stale=False,
+            roe=_as_float(info.get("returnOnEquity")),
+            debt_to_equity=_as_float(info.get("debtToEquity")),
+            price_to_book=_as_float(info.get("priceToBook")),
+            earnings_growth=_as_float(info.get("earningsGrowth")),
+            revenue_growth=_as_float(info.get("revenueGrowth")),
+            fifty_two_week_high=_as_float(info.get("fiftyTwoWeekHigh")),
+            fifty_two_week_low=_as_float(info.get("fiftyTwoWeekLow")),
         )
 
 

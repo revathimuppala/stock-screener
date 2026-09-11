@@ -65,6 +65,70 @@ class DividendYieldFilter:
         return stock.dividend_yield >= self.min_dividend_yield
 
 
+@dataclass(frozen=True, slots=True)
+class RoeMinFilter:
+    roe_min: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.roe is None:
+            return False
+        return stock.roe >= self.roe_min
+
+
+@dataclass(frozen=True, slots=True)
+class DebtToEquityMaxFilter:
+    debt_to_equity_max: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.debt_to_equity is None:
+            return False
+        return stock.debt_to_equity <= self.debt_to_equity_max
+
+
+@dataclass(frozen=True, slots=True)
+class PriceToBookMaxFilter:
+    price_to_book_max: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.price_to_book is None:
+            return False
+        return stock.price_to_book <= self.price_to_book_max
+
+
+@dataclass(frozen=True, slots=True)
+class EarningsGrowthMinFilter:
+    earnings_growth_min: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.earnings_growth is None:
+            return False
+        return stock.earnings_growth >= self.earnings_growth_min
+
+
+@dataclass(frozen=True, slots=True)
+class RevenueGrowthMinFilter:
+    revenue_growth_min: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.revenue_growth is None:
+            return False
+        return stock.revenue_growth >= self.revenue_growth_min
+
+
+@dataclass(frozen=True, slots=True)
+class FiftyTwoWeekProximityFilter:
+    """Matches when price is within `within_pct` (a 0-1 fraction) of the
+    52-week high."""
+
+    within_pct: float
+
+    def matches(self, stock: Stock) -> bool:
+        if stock.fifty_two_week_high is None or stock.fifty_two_week_high <= 0:
+            return False
+        shortfall = (stock.fifty_two_week_high - stock.price) / stock.fifty_two_week_high
+        return shortfall <= self.within_pct
+
+
 class FilterChain:
     """Combines filters built from ScreeningCriteria with AND semantics."""
 
@@ -82,6 +146,18 @@ class FilterChain:
             filters.append(SectorFilter(criteria.sector))
         if criteria.min_dividend_yield is not None:
             filters.append(DividendYieldFilter(criteria.min_dividend_yield))
+        if criteria.roe_min is not None:
+            filters.append(RoeMinFilter(criteria.roe_min))
+        if criteria.debt_to_equity_max is not None:
+            filters.append(DebtToEquityMaxFilter(criteria.debt_to_equity_max))
+        if criteria.price_to_book_max is not None:
+            filters.append(PriceToBookMaxFilter(criteria.price_to_book_max))
+        if criteria.earnings_growth_min is not None:
+            filters.append(EarningsGrowthMinFilter(criteria.earnings_growth_min))
+        if criteria.revenue_growth_min is not None:
+            filters.append(RevenueGrowthMinFilter(criteria.revenue_growth_min))
+        if criteria.near_52_week_high_pct is not None:
+            filters.append(FiftyTwoWeekProximityFilter(criteria.near_52_week_high_pct))
         return cls(filters)
 
     def matches(self, stock: Stock) -> bool:

@@ -28,11 +28,46 @@ function parseOptionalNumber(value: string): number | undefined {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
+// Percent-shaped fields (dividend yield, ROE, growth rates, 52-week
+// proximity) are entered as a plain percent (e.g. "15" for 15%) — much more
+// natural to type than a raw fraction — and converted here at submit time.
+function parseOptionalPercent(value: string): number | undefined {
+  const parsed = parseOptionalNumber(value);
+  return parsed === undefined ? undefined : parsed / 100;
+}
+
+interface NumberFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function NumberField({ label, value, onChange }: NumberFieldProps) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      {label}
+      <input
+        type="number"
+        step="any"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded border px-2 py-1"
+      />
+    </label>
+  );
+}
+
 export function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
   const [peMin, setPeMin] = useState("");
   const [peMax, setPeMax] = useState("");
   const [sector, setSector] = useState("");
   const [minDividendYield, setMinDividendYield] = useState("");
+  const [roeMin, setRoeMin] = useState("");
+  const [debtToEquityMax, setDebtToEquityMax] = useState("");
+  const [priceToBookMax, setPriceToBookMax] = useState("");
+  const [earningsGrowthMin, setEarningsGrowthMin] = useState("");
+  const [revenueGrowthMin, setRevenueGrowthMin] = useState("");
+  const [near52WeekHigh, setNear52WeekHigh] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent) {
@@ -42,7 +77,13 @@ export function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
       pe_min: parseOptionalNumber(peMin),
       pe_max: parseOptionalNumber(peMax),
       sector: sector || undefined,
-      min_dividend_yield: parseOptionalNumber(minDividendYield),
+      min_dividend_yield: parseOptionalPercent(minDividendYield),
+      roe_min: parseOptionalPercent(roeMin),
+      debt_to_equity_max: parseOptionalNumber(debtToEquityMax),
+      price_to_book_max: parseOptionalNumber(priceToBookMax),
+      earnings_growth_min: parseOptionalPercent(earningsGrowthMin),
+      revenue_growth_min: parseOptionalPercent(revenueGrowthMin),
+      near_52_week_high_pct: parseOptionalPercent(near52WeekHigh),
     };
 
     if (
@@ -61,26 +102,8 @@ export function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
   return (
     <form onSubmit={handleSubmit} aria-label="Screening filters" className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <label className="flex flex-col gap-1 text-sm">
-          P/E min
-          <input
-            type="number"
-            step="any"
-            value={peMin}
-            onChange={(e) => setPeMin(e.target.value)}
-            className="rounded border px-2 py-1"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          P/E max
-          <input
-            type="number"
-            step="any"
-            value={peMax}
-            onChange={(e) => setPeMax(e.target.value)}
-            className="rounded border px-2 py-1"
-          />
-        </label>
+        <NumberField label="P/E min" value={peMin} onChange={setPeMin} />
+        <NumberField label="P/E max" value={peMax} onChange={setPeMax} />
         <label className="flex flex-col gap-1 text-sm">
           Sector
           <select
@@ -96,16 +119,28 @@ export function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Min dividend yield
-          <input
-            type="number"
-            step="any"
-            value={minDividendYield}
-            onChange={(e) => setMinDividendYield(e.target.value)}
-            className="rounded border px-2 py-1"
-          />
-        </label>
+        <NumberField label="Min dividend yield (%)" value={minDividendYield} onChange={setMinDividendYield} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <NumberField label="ROE min (%)" value={roeMin} onChange={setRoeMin} />
+        <NumberField label="Debt/Equity max" value={debtToEquityMax} onChange={setDebtToEquityMax} />
+        <NumberField label="P/B max" value={priceToBookMax} onChange={setPriceToBookMax} />
+        <NumberField
+          label="Earnings growth min (%)"
+          value={earningsGrowthMin}
+          onChange={setEarningsGrowthMin}
+        />
+        <NumberField
+          label="Revenue growth min (%)"
+          value={revenueGrowthMin}
+          onChange={setRevenueGrowthMin}
+        />
+        <NumberField
+          label="Near 52-week high (within %)"
+          value={near52WeekHigh}
+          onChange={setNear52WeekHigh}
+        />
       </div>
 
       {validationError && (

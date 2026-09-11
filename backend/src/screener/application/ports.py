@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Protocol
 
-from screener.domain.entities import Stock
+from screener.domain.entities import PriceBar, SavedScreen, Stock
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,3 +36,21 @@ class WatchlistRepository(Protocol):
     def add(self, symbol: str) -> None: ...
     def remove(self, symbol: str) -> None: ...
     def list_symbols(self) -> list[str]: ...
+
+
+class SavedScreenRepository(Protocol):
+    """Persistence port for saved screens. Concrete implementations
+    (SQLite, in-memory) live in the infrastructure/test layers (DIP)."""
+
+    def save(self, screen: SavedScreen) -> None: ...
+    def list(self) -> list[SavedScreen]: ...
+    def get(self, screen_id: str) -> SavedScreen | None: ...
+    def delete(self, screen_id: str) -> None: ...
+
+
+class PriceHistoryProvider(Protocol):
+    """Port for historical daily closes, used by the moving-average filter
+    stage and by backtesting. Concrete implementations (yfinance, a
+    file-backed cache wrapping it) live in the infrastructure layer (DIP)."""
+
+    def get_history(self, symbol: str, start: date, end: date) -> list[PriceBar]: ...
